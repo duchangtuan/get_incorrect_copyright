@@ -3,10 +3,10 @@
 print_usage () {
     echo "USAGE: ${SCRIPT} [OPTIONS]"
     echo "This script gets the wrong copyright in .c and .h files"
-    echo "    -t Perforce_path (Ex: //depot/aus/aaa/bbb/)"
+    echo "    -t Perforce_path (Ex: //depot/aus/Advanced_Development/AR/OARv2/main/Object_Audio_Renderer_Imp/Source_Code/)"
     echo "    -s Start_date (EX: 2016/05/26)"
     echo "    -e End_date (EX: now)"
-    echo "One example: bash get_incorrect_copyright.sh -t //depot/aus/aaa/bbb -s 2016/05/26 -e now"
+    echo "One example: bash get_incorrect_copyright.sh -t //depot/aus/Advanced_Development/AR/OARv2/main/Object_Audio_Renderer_Imp/Source_Code -s 2016/05/26 -e now"
 }
 
 while getopts ":t:s:e:h" OPT; do
@@ -44,18 +44,19 @@ if [ $last_char_prefix == "/" ]; then
 fi
 
 # Sync from p4
-p4 sync -f $prefix/...
+#p4 sync -f $prefix/...
 
 code_folders=(${prefix//\// })
 code_folder=${code_folders[${#code_folder[@]} - 1]}
 code_folder_length=${#code_folder}
 
-h_c_files=$(find $code_folder -regex ".*\.\(c\|\h\)")
+code_files=$(find $code_folder -regex ".*\.\(c\|h\)")
 
+echo " "
 echo "Files that has incorrect copyright year"
 echo " "
 
-for file in $h_c_files
+for file in $code_files
 do
     # cut out the common part of the perforce path and local path 
     perforce_path_c_h=$prefix"/"${file:${code_folder_length}+1:${#file}}
@@ -64,11 +65,32 @@ do
     updated=$(p4 changes $perforce_path_c_h@${start_time},@${end_time})
     if [ "$updated" ];
     then
-        #echo $updated
-        grep_2016=$(grep '2016' $file)
-        if [ -z "$grep_2016" ];
+        #First find if there is 'copyright' word in the file
+        #Because some of the files don't have copyright word.
+        grep_copyright=$(grep 'copyright' $file)
+        if [ -n "$grep_copyright" ];
         then
-            echo $perforce_path_c_h
+            grep_2016=$(grep '2016' $file)
+            if [ -z "$grep_2016" ];
+            then
+                changelist=$(p4 changes -m 2 $file)
+                line_number=$(echo $changelist | grep -o 'Change' | wc -l)
+                if [ $line_number -ne 1 ];
+                then 
+                    # get the two latest changelist
+                    changelist=$(echo $changelist | grep -o '[0-9]\{7\}')
+                    changelist1=${changelist:0:7}
+                    changelist2=${changelist:8:7} 
+                    # diff the two changelists. Because sometimes, maybe one changelist that merge from other perforce path,
+                    # cause there is no differnce between the two changelists.
+                    diff=$(p4 diff $perforce_path_c_h@$changelist1 $perforce_path_c_h@$changelist2 2>/dev/null)
+                    have_diff=$(echo $diff | grep '>')
+                    if [ -n "$have_diff" ];
+                    then
+                        echo $perforce_path_c_h
+                    fi                    
+                fi
+            fi
         fi
     fi
 done
