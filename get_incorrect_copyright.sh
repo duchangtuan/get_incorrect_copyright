@@ -38,7 +38,10 @@ fi
 
 prefix=$perforce_path
 i=$((${#prefix} - 1))
+# get the last character of the perforce path
+# ${str:a:b} a is the starting point, b is the length
 last_char_prefix=${prefix:$i:1}
+# make sure the last charactor of perforce path is not '/'
 if [ $last_char_prefix == "/" ]; then
     prefix=${prefix:0:$i}
 fi
@@ -46,7 +49,9 @@ fi
 # Sync from p4
 #p4 sync -f $prefix/...
 
+# split the perforce path, the list seperator is '/'
 code_folders=(${prefix//\// })
+# get the last element of the coder_folders, that is, the direct folder name of perforce path
 code_folder=${code_folders[${#code_folder[@]} - 1]}
 code_folder_length=${#code_folder}
 
